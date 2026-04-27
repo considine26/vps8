@@ -225,12 +225,8 @@ def action_list_domains():
     console.print(table)
 
 
-def action_list_records():
-    """📋 列出域名记录"""
-    domain = select_domain()
-    if not domain:
-        return
-
+def _show_records(domain: str):
+    """📋 列出指定域名的 DNS 记录"""
     console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
     records = api_record_list(domain)
 
@@ -248,25 +244,22 @@ def action_list_records():
 
     for r in records:
         if isinstance(r, dict):
-            rid = r.get("id", "")
-            host = r.get("host", "")
-            rtype = r.get("type", "")
-            value = r.get("value", "")
-            ttl = r.get("ttl", "")
-            priority = r.get("priority", "")
-            table.add_row(str(rid), str(host), str(rtype), str(value), str(ttl), str(priority))
+            table.add_row(
+                str(r.get("id", "")),
+                str(r.get("host", "")),
+                str(r.get("type", "")),
+                str(r.get("value", "")),
+                str(r.get("ttl", "")),
+                str(r.get("priority", "")),
+            )
         else:
             table.add_row("", str(r), "", "", "", "")
 
     console.print(table)
 
 
-def action_create_record():
+def action_create_record(domain: str):
     """➕ 创建 DNS 记录"""
-    domain = select_domain()
-    if not domain:
-        return
-
     console.print(Panel(f"为 [cyan bold]{domain}[/] 创建新记录", title="创建记录"))
 
     host = questionary.text("主机名 (如 www, @, sub):", default="").ask()
@@ -303,12 +296,8 @@ def action_create_record():
         console.print(f"[bold green]✓ 创建成功[/]  {result}")
 
 
-def action_update_record():
+def action_update_record(domain: str):
     """✏️ 更新 DNS 记录"""
-    domain = select_domain()
-    if not domain:
-        return
-
     # 先列出记录方便选择
     console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
     records = api_record_list(domain)
@@ -317,24 +306,7 @@ def action_update_record():
         return
 
     # 展示记录
-    table = Table(title=f"当前记录 — {domain}", show_lines=True)
-    table.add_column("#", style="dim", width=4)
-    table.add_column("ID", style="dim", width=8)
-    table.add_column("主机名", style="cyan")
-    table.add_column("类型", style="magenta")
-    table.add_column("值", style="green")
-    table.add_column("TTL", style="yellow")
-    for i, r in enumerate(records, 1):
-        if isinstance(r, dict):
-            table.add_row(
-                str(i),
-                str(r.get("id", "")),
-                str(r.get("host", "")),
-                str(r.get("type", "")),
-                str(r.get("value", "")),
-                str(r.get("ttl", "")),
-            )
-    console.print(table)
+    _show_records(domain)
 
     # 让用户输入要更新的记录 ID
     id_str = questionary.text("请输入要更新的记录 ID:").ask()
@@ -390,12 +362,8 @@ def action_update_record():
         console.print(f"[bold green]✓ 更新成功[/]  {result}")
 
 
-def action_delete_record():
+def action_delete_record(domain: str):
     """🗑️ 删除 DNS 记录"""
-    domain = select_domain()
-    if not domain:
-        return
-
     # 先列出记录
     console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
     records = api_record_list(domain)
@@ -404,22 +372,7 @@ def action_delete_record():
         return
 
     # 展示记录
-    table = Table(title=f"当前记录 — {domain}", show_lines=True)
-    table.add_column("#", style="dim", width=4)
-    table.add_column("ID", style="dim", width=8)
-    table.add_column("主机名", style="cyan")
-    table.add_column("类型", style="magenta")
-    table.add_column("值", style="green")
-    for i, r in enumerate(records, 1):
-        if isinstance(r, dict):
-            table.add_row(
-                str(i),
-                str(r.get("id", "")),
-                str(r.get("host", "")),
-                str(r.get("type", "")),
-                str(r.get("value", "")),
-            )
-    console.print(table)
+    _show_records(domain)
 
     # 输入要删除的 ID
     id_str = questionary.text("请输入要删除的记录 ID:").ask()
@@ -444,6 +397,46 @@ def action_delete_record():
 
 
 # ── 主菜单 ──────────────────────────────────────────────────────
+def _pause_and_clear():
+    """操作结束后等待用户确认，然后清屏"""
+    questionary.select("按回车返回...", choices=["↩ 返回"]).ask()
+    os.system("cls" if os.name == "nt" else "clear")
+
+
+def _record_menu(domain: str):
+    """域名记录子菜单"""
+    while True:
+        choice = questionary.select(
+            f"📡 {domain} — 记录管理:",
+            choices=[
+                "📋 查看记录",
+                "➕ 创建 DNS",
+                "✏️  更新 DNS",
+                "🗑️  删除 DNS",
+                "↩ 返回上级",
+            ],
+        ).ask()
+
+        if choice is None or choice == "↩ 返回上级":
+            break
+
+        try:
+            if choice == "📋 查看记录":
+                _show_records(domain)
+            elif choice == "➕ 创建 DNS":
+                action_create_record(domain)
+            elif choice == "✏️  更新 DNS":
+                action_update_record(domain)
+            elif choice == "🗑️  删除 DNS":
+                action_delete_record(domain)
+        except KeyboardInterrupt:
+            console.print("\n[dim]操作已中断[/]")
+        except Exception as e:
+            console.print(f"[bold red]✗ 运行出错: {e}[/]")
+
+        _pause_and_clear()
+
+
 def main():
     if not API_KEY:
         console.print("[bold red]✗ 未检测到 VPS8_API_KEY，请在 .env 文件中配置[/]")
@@ -456,45 +449,39 @@ def main():
         border_style="cyan",
     ))
 
-    actions = {
-        "📋 列出所有域名": action_list_domains,
-        "📋 列出域名记录": action_list_records,
-        "➕ 创建 DNS 记录": action_create_record,
-        "✏️  更新 DNS 记录": action_update_record,
-        "🗑️  删除 DNS 记录": action_delete_record,
-        "🔄 刷新域名缓存": None,
-        "❌ 退出": None,
-    }
-
     while True:
         choice = questionary.select(
             "请选择操作:",
-            choices=list(actions.keys()),
+            choices=[
+                "📋 查看域名",
+                "📡 域名记录",
+                "🔄 刷新缓存",
+                "❌ 退出脚本",
+            ],
         ).ask()
 
-        if choice is None or choice == "❌ 退出":
+        if choice is None or choice == "❌ 退出脚本":
             console.print("[dim]再见！[/]")
             break
 
-        if choice == "🔄 刷新域名缓存":
-            api_domain_list(refresh=True)
-            console.print("[green]✓ 域名缓存已刷新[/]")
-            questionary.select("按回车返回主菜单...", choices=["↩ 返回"]).ask()
-            os.system("cls" if os.name == "nt" else "clear")
-            continue
-
-        handler = actions[choice]
-        if handler:
+        if choice == "📋 查看域名":
             try:
-                handler()
+                action_list_domains()
             except KeyboardInterrupt:
                 console.print("\n[dim]操作已中断[/]")
             except Exception as e:
                 console.print(f"[bold red]✗ 运行出错: {e}[/]")
+            _pause_and_clear()
 
-            # 操作结束后等待用户确认，然后清屏
-            questionary.select("按回车返回主菜单...", choices=["↩ 返回"]).ask()
-            os.system("cls" if os.name == "nt" else "clear")
+        elif choice == "📡 域名记录":
+            domain = select_domain()
+            if domain:
+                _record_menu(domain)
+
+        elif choice == "🔄 刷新缓存":
+            api_domain_list(refresh=True)
+            console.print("[green]✓ 域名缓存已刷新[/]")
+            _pause_and_clear()
 
 
 if __name__ == "__main__":
