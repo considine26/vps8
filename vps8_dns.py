@@ -498,7 +498,7 @@ def main():
         clear_screen()
         console.print(Panel.fit(
             "[bold cyan]VPS8 DNS 管理工具[/]\n"
-            "[dim]键盘交互 · 支持域名记录增删改查[/]",
+            "[dim]支持域名记录增删改查[/]",
             title="🌐 VPS8 DNS",
             border_style="cyan",
         ))
