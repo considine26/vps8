@@ -25,6 +25,26 @@ API_KEY = os.getenv("VPS8_API_KEY", "")
 SUPPORTED_TYPES = ["A", "AAAA", "MX", "CNAME", "TXT"]
 DEFAULT_TTL = 600
 
+# ── 域名缓存 ───────────────────────────────────────────────────
+_domain_cache: list | None = None
+
+
+def api_domain_list(refresh: bool = False) -> list:
+    """获取域名列表（带缓存，避免重复请求）
+
+    Args:
+        refresh: 强制刷新缓存
+    """
+    global _domain_cache
+    if _domain_cache is None or refresh:
+        data = _post("domain_list", {})
+        if data:
+            result = data.get("result", [])
+            _domain_cache = result if isinstance(result, list) else []
+        else:
+            _domain_cache = []
+    return _domain_cache
+
 
 # ── API 层 ──────────────────────────────────────────────────────
 def _auth():
@@ -69,18 +89,6 @@ def _post(endpoint: str, payload: dict) -> dict:
         return {}
 
 
-def api_domain_list() -> list:
-    """列出所有 DNS 区域"""
-    data = _post("domain_list", {})
-    if not data:
-        return []
-    # API 返回格式: {"result": [...], "error": null}
-    result = data.get("result", [])
-    if isinstance(result, list):
-        return result
-    return []
-
-
 def api_record_list(domain: str) -> list:
     """列出域名记录"""
     data = _post("record_list", {"domain": domain})
@@ -122,7 +130,6 @@ def api_record_delete(domain: str, record_id: int) -> dict:
 # ── 选择域名 ──────────────────────────────────────────────────────
 def select_domain() -> str | None:
     """从域名列表中选择一个域名，返回域名文本或 None"""
-    console.print("\n[dim]正在获取域名列表...[/]")
     domains = api_domain_list()
 
     if not domains:
@@ -176,7 +183,7 @@ def select_domain() -> str | None:
 def action_list_domains():
     """📋 列出所有 DNS 区域（domain 来源优先，dns 来源在后）"""
     console.print()
-    domains = api_domain_list()
+    domains = api_domain_list(refresh=True)
 
     if not domains:
         console.print("[yellow]未找到任何域名[/]")
@@ -455,6 +462,7 @@ def main():
         "➕ 创建 DNS 记录": action_create_record,
         "✏️  更新 DNS 记录": action_update_record,
         "🗑️  删除 DNS 记录": action_delete_record,
+        "🔄 刷新域名缓存": None,
         "❌ 退出": None,
     }
 
@@ -467,6 +475,13 @@ def main():
         if choice is None or choice == "❌ 退出":
             console.print("[dim]再见！[/]")
             break
+
+        if choice == "🔄 刷新域名缓存":
+            api_domain_list(refresh=True)
+            console.print("[green]✓ 域名缓存已刷新[/]")
+            questionary.select("按回车返回主菜单...", choices=["↩ 返回"]).ask()
+            os.system("cls" if os.name == "nt" else "clear")
+            continue
 
         handler = actions[choice]
         if handler:
