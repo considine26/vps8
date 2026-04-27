@@ -225,11 +225,8 @@ def action_list_domains():
     console.print(table)
 
 
-def _show_records(domain: str):
-    """📋 列出指定域名的 DNS 记录"""
-    console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
-    records = api_record_list(domain)
-
+def _print_records_table(domain: str, records: list):
+    """渲染 DNS 记录表格（纯展示，不请求 API）"""
     if not records:
         console.print(f"[yellow]{domain} 暂无记录[/]")
         return
@@ -252,79 +249,100 @@ def _show_records(domain: str):
                 str(r.get("ttl", "")),
                 str(r.get("priority", "")),
             )
-        else:
-            table.add_row("", str(r), "", "", "", "")
+
+    console.print(table)
 
     console.print(table)
 
 
-def action_create_record(domain: str):
-    """➕ 创建 DNS 记录"""
+def _do_create(domain: str, records: list) -> bool:
+    """➕ 创建 DNS 记录，成功后更新本地 records 列表，返回是否有变更"""
     console.print(Panel(f"为 [cyan bold]{domain}[/] 创建新记录", title="创建记录"))
 
     host = questionary.text("主机名 (如 www, @, sub):", default="").ask()
     if host is None:
-        return
+        return False
 
     rtype = questionary.select("记录类型:", choices=SUPPORTED_TYPES).ask()
     if rtype is None:
-        return
+        return False
 
     value = questionary.text("记录值 (如 1.2.3.4):").ask()
     if value is None:
-        return
+        return False
 
     ttl_str = questionary.text("TTL (秒):", default=str(DEFAULT_TTL)).ask()
     if ttl_str is None:
-        return
+        return False
     try:
         ttl = int(ttl_str)
     except ValueError:
         console.print("[red]TTL 必须为整数，已使用默认值 600[/]")
         ttl = DEFAULT_TTL
 
-    # 确认
     confirm = questionary.confirm(
         f"确认创建: {host}.{domain}  {rtype} → {value}  TTL={ttl} ?"
     ).ask()
     if not confirm:
         console.print("[dim]已取消[/]")
-        return
+        return False
 
     result = api_record_create(domain, host, rtype, value, ttl)
-    if result:
-        console.print(f"[bold green]✓ 创建成功[/]  {result}")
+    if not result:
+        return False
+
+    console.print("[bold green]✓ 创建成功[/]")
+    # 从 API 返回中提取新记录，加入本地列表
+    new_record = result.get("result")
+    if isinstance(new_record, dict):
+        records.append(new_record)
+    else:
+        # API 未返回完整记录，用用户输入构造一条
+        records.append({
+            "id": new_record if new_record else "?",
+            "host": host,
+            "type": rtype,
+            "value": value,
+            "ttl": ttl,
+            "priority": 0,
+        })
+    return True
 
 
-def action_update_record(domain: str):
-    """✏️ 更新 DNS 记录"""
-    # 先列出记录方便选择
-    console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
-    records = api_record_list(domain)
+def _do_update(domain: str, records: list) -> bool:
+    """✏️ 更新 DNS 记录，成功后更新本地 records 列表，返回是否有变更"""
     if not records:
         console.print(f"[yellow]{domain} 暂无记录可更新[/]")
-        return
+        return False
 
-    # 展示记录
-    _show_records(domain)
-
-    # 让用户输入要更新的记录 ID
     id_str = questionary.text("请输入要更新的记录 ID:").ask()
     if id_str is None:
-        return
+        return False
     try:
         record_id = int(id_str)
     except ValueError:
         console.print("[red]记录 ID 必须为整数[/]")
-        return
+        return False
 
-    # 选择要更新的字段
+    # 在本地列表中查找
+    target = None
+    for r in records:
+        if isinstance(r, dict) and r.get("id") == record_id:
+            target = r
+            break
+    if not target:
+        console.print(f"[yellow]未找到 ID={record_id} 的记录[/]")
+        return False
+
+    # 显示当前记录
+    console.print(f"  当前: [cyan]{target.get('host')}[/]  [magenta]{target.get('type')}[/] → [green]{target.get('value')}[/]  TTL={target.get('ttl')}")
+
     fields = questionary.checkbox(
         "选择要更新的字段:", choices=["value (记录值)", "ttl (TTL)"]
     ).ask()
     if not fields:
         console.print("[dim]已取消[/]")
-        return
+        return False
 
     new_value = None
     new_ttl = None
@@ -332,19 +350,18 @@ def action_update_record(domain: str):
     if any("value" in f for f in fields):
         new_value = questionary.text("新的记录值:").ask()
         if new_value is None:
-            return
+            return False
 
     if any("ttl" in f for f in fields):
-        ttl_str = questionary.text("新的 TTL:", default=str(DEFAULT_TTL)).ask()
+        ttl_str = questionary.text("新的 TTL:", default=str(target.get("ttl", DEFAULT_TTL))).ask()
         if ttl_str is None:
-            return
+            return False
         try:
             new_ttl = int(ttl_str)
         except ValueError:
             console.print("[red]TTL 必须为整数[/]")
-            return
+            return False
 
-    # 确认
     parts = []
     if new_value is not None:
         parts.append(f"value={new_value}")
@@ -355,45 +372,64 @@ def action_update_record(domain: str):
     ).ask()
     if not confirm:
         console.print("[dim]已取消[/]")
-        return
+        return False
 
     result = api_record_update(domain, record_id, value=new_value, ttl=new_ttl)
-    if result:
-        console.print(f"[bold green]✓ 更新成功[/]  {result}")
+    if not result:
+        return False
+
+    console.print("[bold green]✓ 更新成功[/]")
+    # 更新本地列表
+    if new_value is not None:
+        target["value"] = new_value
+    if new_ttl is not None:
+        target["ttl"] = new_ttl
+    return True
 
 
-def action_delete_record(domain: str):
-    """🗑️ 删除 DNS 记录"""
-    # 先列出记录
-    console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
-    records = api_record_list(domain)
+def _do_delete(domain: str, records: list) -> bool:
+    """🗑️ 删除 DNS 记录，成功后更新本地 records 列表，返回是否有变更"""
     if not records:
         console.print(f"[yellow]{domain} 暂无记录可删除[/]")
-        return
+        return False
 
-    # 展示记录
-    _show_records(domain)
-
-    # 输入要删除的 ID
     id_str = questionary.text("请输入要删除的记录 ID:").ask()
     if id_str is None:
-        return
+        return False
     try:
         record_id = int(id_str)
     except ValueError:
         console.print("[red]记录 ID 必须为整数[/]")
-        return
+        return False
+
+    # 在本地列表中查找
+    target = None
+    for r in records:
+        if isinstance(r, dict) and r.get("id") == record_id:
+            target = r
+            break
+    if not target:
+        console.print(f"[yellow]未找到 ID={record_id} 的记录[/]")
+        return False
+
+    # 显示要删除的记录
+    console.print(f"  将删除: [cyan]{target.get('host')}[/]  [magenta]{target.get('type')}[/] → [green]{target.get('value')}[/]  TTL={target.get('ttl')}")
 
     confirm = questionary.confirm(
         f"[bold red]⚠ 此操作不可逆！[/] 确认删除记录 ID={record_id} ?"
     ).ask()
     if not confirm:
         console.print("[dim]已取消[/]")
-        return
+        return False
 
     result = api_record_delete(domain, record_id)
-    if result:
-        console.print(f"[bold green]✓ 删除成功[/]  {result}")
+    if not result:
+        return False
+
+    console.print("[bold green]✓ 删除成功[/]")
+    # 从本地列表移除
+    records.remove(target)
+    return True
 
 
 # ── 主菜单 ──────────────────────────────────────────────────────
@@ -404,15 +440,24 @@ def _pause_and_clear():
 
 
 def _record_menu(domain: str):
-    """域名记录子菜单"""
+    """域名记录子菜单 — 本地缓存记录列表，增删改后动态刷新"""
+    # 首次进入时获取一次记录
+    console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
+    records = api_record_list(domain)
+
     while True:
+        # 每次循环先刷新显示记录列表
+        console.print()
+        _print_records_table(domain, records)
+
+        # 记录列表下方显示操作选项
         choice = questionary.select(
-            f"📡 {domain} — 记录管理:",
+            f"📡 {domain} — 操作:",
             choices=[
-                "📋 查看记录",
                 "➕ 创建 DNS",
                 "✏️  更新 DNS",
                 "🗑️  删除 DNS",
+                "🔄 重新获取",
                 "↩ 返回上级",
             ],
         ).ask()
@@ -420,21 +465,28 @@ def _record_menu(domain: str):
         if choice is None or choice == "↩ 返回上级":
             break
 
+        if choice == "🔄 重新获取":
+            console.print(f"\n[dim]重新获取 {domain} 的记录...[/]")
+            records = api_record_list(domain)
+            continue
+
         try:
-            if choice == "📋 查看记录":
-                _show_records(domain)
-            elif choice == "➕ 创建 DNS":
-                action_create_record(domain)
+            if choice == "➕ 创建 DNS":
+                changed = _do_create(domain, records)
             elif choice == "✏️  更新 DNS":
-                action_update_record(domain)
+                changed = _do_update(domain, records)
             elif choice == "🗑️  删除 DNS":
-                action_delete_record(domain)
+                changed = _do_delete(domain, records)
+            else:
+                changed = False
         except KeyboardInterrupt:
             console.print("\n[dim]操作已中断[/]")
+            continue
         except Exception as e:
             console.print(f"[bold red]✗ 运行出错: {e}[/]")
+            continue
 
-        _pause_and_clear()
+        # 循环回到顶部，自动重新渲染列表
 
 
 def main():
