@@ -486,7 +486,8 @@ def _record_menu(domain: str):
             console.print(f"[bold red]✗ 运行出错: {e}[/]")
             continue
 
-        # 循环回到顶部，自动重新渲染列表
+        # 操作完成后清屏，循环回到顶部重新渲染列表
+        os.system("cls" if os.name == "nt" else "clear")
 
 
 def main():
