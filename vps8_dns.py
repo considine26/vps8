@@ -440,8 +440,8 @@ def _record_menu(domain: str):
             f"📡 {domain} — 操作:",
             choices=[
                 "➕ 创建 DNS",
-                "✏️  更新 DNS",
-                "🗑️  删除 DNS",
+                "✏️ 更新 DNS",
+                "🗑️ 删除 DNS",
                 "🔄 重新获取",
                 "↩ 返回上级",
             ],
@@ -461,9 +461,9 @@ def _record_menu(domain: str):
                 if changed:
                     console.print(f"\n[dim]正在自动重新获取 {domain} 的记录...[/]")
                     records = api_record_list(domain)
-            elif choice == "✏️  更新 DNS":
+            elif choice == "✏️ 更新 DNS":
                 changed = _do_update(domain, records)
-            elif choice == "🗑️  删除 DNS":
+            elif choice == "🗑️ 删除 DNS":
                 changed = _do_delete(domain, records)
             else:
                 changed = False
