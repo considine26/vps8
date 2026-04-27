@@ -256,7 +256,7 @@ def _print_records_table(domain: str, records: list):
 
 def _do_create(domain: str, records: list) -> bool:
     """➕ 创建 DNS 记录，成功后更新本地 records 列表，返回是否有变更"""
-    console.print(Panel(f"为 [cyan bold]{domain}[/] 创建新记录", title="创建记录"))
+    console.print(Panel.fit(f"为 [cyan bold]{domain}[/] 创建新记录", title="创建记录"))
 
     host = questionary.text("主机名 (如 www, @, sub):", default="").ask()
     if host is None:
@@ -496,7 +496,7 @@ def main():
 
     while True:
         clear_screen()
-        console.print(Panel(
+        console.print(Panel.fit(
             "[bold cyan]VPS8 DNS 管理工具[/]\n"
             "[dim]键盘交互 · 支持域名记录增删改查[/]",
             title="🌐 VPS8 DNS",
