@@ -252,7 +252,6 @@ def _print_records_table(domain: str, records: list):
 
     console.print(table)
 
-    console.print(table)
 
 
 def _do_create(domain: str, records: list) -> bool:
@@ -327,7 +326,7 @@ def _do_update(domain: str, records: list) -> bool:
     # 在本地列表中查找
     target = None
     for r in records:
-        if isinstance(r, dict) and r.get("id") == record_id:
+        if isinstance(r, dict) and str(r.get("id", "")) == str(record_id):
             target = r
             break
     if not target:
@@ -405,7 +404,7 @@ def _do_delete(domain: str, records: list) -> bool:
     # 在本地列表中查找
     target = None
     for r in records:
-        if isinstance(r, dict) and r.get("id") == record_id:
+        if isinstance(r, dict) and str(r.get("id", "")) == str(record_id):
             target = r
             break
     if not target:
