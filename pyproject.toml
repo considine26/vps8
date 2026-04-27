@@ -1,0 +1,16 @@
+[project]
+name = "vps8"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.2.2",
+    "questionary>=2.1.1",
+    "requests>=2.33.1",
+    "rich>=15.0.0",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
