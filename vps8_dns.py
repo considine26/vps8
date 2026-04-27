@@ -477,6 +477,10 @@ def main():
             except Exception as e:
                 console.print(f"[bold red]✗ 运行出错: {e}[/]")
 
+            # 操作结束后等待用户确认，然后清屏
+            questionary.select("按回车返回主菜单...", choices=["↩ 返回"]).ask()
+            os.system("cls" if os.name == "nt" else "clear")
+
 
 if __name__ == "__main__":
     main()
