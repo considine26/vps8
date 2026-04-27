@@ -37,7 +37,8 @@ def api_domain_list(refresh: bool = False) -> list:
     """
     global _domain_cache
     if _domain_cache is None or refresh:
-        data = _post("domain_list", {})
+        with console.status("[dim]正在获取域名列表...[/]", spinner="dots"):
+            data = _post("domain_list", {})
         if data:
             result = data.get("result", [])
             _domain_cache = result if isinstance(result, list) else []
@@ -436,8 +437,8 @@ def _record_menu(domain: str):
     """域名记录子菜单 — 本地缓存记录列表，增删改后动态刷新"""
     # 首次进入时获取一次记录
     clear_screen()
-    console.print(f"\n[dim]正在获取 {domain} 的记录...[/]")
-    records = api_record_list(domain)
+    with console.status(f"[dim]正在获取 {domain} 的记录...[/]", spinner="dots"):
+        records = api_record_list(domain)
 
     while True:
         clear_screen()
@@ -461,8 +462,8 @@ def _record_menu(domain: str):
             break
 
         if choice == "🔄 重新获取":
-            console.print(f"\n[dim]重新获取 {domain} 的记录...[/]")
-            records = api_record_list(domain)
+            with console.status(f"[dim]重新获取 {domain} 的记录...[/]", spinner="dots"):
+                records = api_record_list(domain)
             continue
 
         try:
@@ -470,8 +471,8 @@ def _record_menu(domain: str):
             if choice == "➕ 创建 DNS":
                 res = _do_create(domain, records)
                 if res is True:
-                    console.print(f"\n[dim]正在自动重新获取 {domain} 的记录...[/]")
-                    records = api_record_list(domain)
+                    with console.status(f"[dim]正在自动重新获取 {domain} 的记录...[/]", spinner="dots"):
+                        records = api_record_list(domain)
             elif choice == "✏️ 更新 DNS":
                 res = _do_update(domain, records)
             elif choice == "🗑️ 删除 DNS":
