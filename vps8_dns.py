@@ -291,20 +291,6 @@ def _do_create(domain: str, records: list) -> bool:
         return False
 
     console.print("[bold green]✓ 创建成功[/]")
-    # 从 API 返回中提取新记录，加入本地列表
-    new_record = result.get("result")
-    if isinstance(new_record, dict):
-        records.append(new_record)
-    else:
-        # API 未返回完整记录，用用户输入构造一条
-        records.append({
-            "id": new_record if new_record else "?",
-            "host": host,
-            "type": rtype,
-            "value": value,
-            "ttl": ttl,
-            "priority": 0,
-        })
     return True
 
 
@@ -472,6 +458,9 @@ def _record_menu(domain: str):
         try:
             if choice == "➕ 创建 DNS":
                 changed = _do_create(domain, records)
+                if changed:
+                    console.print(f"\n[dim]正在自动重新获取 {domain} 的记录...[/]")
+                    records = api_record_list(domain)
             elif choice == "✏️  更新 DNS":
                 changed = _do_update(domain, records)
             elif choice == "🗑️  删除 DNS":
