@@ -129,35 +129,72 @@ def select_domain() -> str | None:
         console.print("[yellow]未找到任何域名，或 API 返回为空[/]")
         return None
 
-    # 兼容不同返回格式：可能是字符串列表，也可能是字典列表
+    # 按 source_service 排序: domain 在前, dns 在后
+    def _sort_key(d):
+        if isinstance(d, dict):
+            src = d.get("source_service", "")
+            if src == "domain":
+                return 0
+            elif src == "dns":
+                return 1
+            return 2
+        return 2
+
+    domains.sort(key=_sort_key)
+
+    # 构建选项：来源标签 + 域名
     choices = []
+    choice_domains = []
     for d in domains:
         if isinstance(d, str):
             choices.append(d)
+            choice_domains.append(d)
         elif isinstance(d, dict):
-            name = d.get("domain", d.get("name", d.get("id", str(d))))
-            choices.append(name)
+            name = d.get("domain", "")
+            src = d.get("source_service", "")
+            tag = {"domain": "📦", "dns": "🔗"}.get(src, "❓")
+            choices.append(f"{tag} {name}  [dim]{src}[/]")
+            choice_domains.append(name)
 
     if not choices:
         console.print("[yellow]域名列表解析为空[/]")
         return None
 
     if len(choices) == 1:
-        console.print(f"[green]自动选择唯一域名: {choices[0]}[/]")
-        return choices[0]
+        console.print(f"[green]自动选择唯一域名: {choice_domains[0]}[/]")
+        return choice_domains[0]
 
-    return questionary.select("请选择域名:", choices=choices).ask()
+    selected = questionary.select("请选择域名:", choices=choices).ask()
+    if selected is None:
+        return None
+    # 从选中项提取纯域名（去掉标签前缀）
+    idx = choices.index(selected)
+    return choice_domains[idx]
 
 
 # ── 功能模块 ──────────────────────────────────────────────────────
 def action_list_domains():
-    """📋 列出所有 DNS 区域"""
+    """📋 列出所有 DNS 区域（domain 来源优先，dns 来源在后）"""
     console.print()
     domains = api_domain_list()
 
     if not domains:
         console.print("[yellow]未找到任何域名[/]")
         return
+
+    # 按 source_service 排序: domain 在前, dns 在后
+    def _sort_key(d):
+        if isinstance(d, dict):
+            src = d.get("source_service", "")
+            # domain → 0 (优先), dns → 1, 其他 → 2
+            if src == "domain":
+                return 0
+            elif src == "dns":
+                return 1
+            return 2
+        return 2
+
+    domains.sort(key=_sort_key)
 
     table = Table(title="DNS 区域列表", show_lines=True)
     table.add_column("#", style="dim", width=4)
