@@ -37,7 +37,11 @@ def _headers():
 
 
 def _post(endpoint: str, payload: dict) -> dict:
-    """统一 POST 请求，自动处理错误"""
+    """统一 POST 请求，自动处理错误
+
+    API 返回格式: {"result": ..., "error": null}
+    出错时: {"result": null, "error": "错误信息"}
+    """
     url = f"{BASE_URL}/{endpoint}"
     try:
         resp = requests.post(url, json=payload, auth=_auth(), headers=_headers(), timeout=15)
@@ -45,7 +49,12 @@ def _post(endpoint: str, payload: dict) -> dict:
             console.print("[bold red]⚠ 请求过于频繁，已触发速率限制，请稍后再试[/]")
             return {}
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        # 检查 API 层面的错误
+        if data.get("error"):
+            console.print(f"[bold red]✗ API 错误: {data['error']}[/]")
+            return {}
+        return data
     except requests.exceptions.HTTPError as e:
         console.print(f"[bold red]✗ HTTP 错误: {e}[/]")
         return {}
@@ -65,10 +74,11 @@ def api_domain_list() -> list:
     data = _post("domain_list", {})
     if not data:
         return []
-    # 兼容不同返回格式
-    if isinstance(data, list):
-        return data
-    return data.get("data", data.get("domains", data.get("list", [])))
+    # API 返回格式: {"result": [...], "error": null}
+    result = data.get("result", [])
+    if isinstance(result, list):
+        return result
+    return []
 
 
 def api_record_list(domain: str) -> list:
@@ -76,9 +86,11 @@ def api_record_list(domain: str) -> list:
     data = _post("record_list", {"domain": domain})
     if not data:
         return []
-    if isinstance(data, list):
-        return data
-    return data.get("data", data.get("records", data.get("list", [])))
+    # API 返回格式: {"result": [...], "error": null}
+    result = data.get("result", [])
+    if isinstance(result, list):
+        return result
+    return []
 
 
 def api_record_create(domain: str, host: str, rtype: str, value: str, ttl: int) -> dict:
@@ -150,23 +162,21 @@ def action_list_domains():
     table = Table(title="DNS 区域列表", show_lines=True)
     table.add_column("#", style="dim", width=4)
     table.add_column("域名", style="cyan bold")
-
-    # 如果返回的是字典，尝试展示更多列
-    has_extra = isinstance(domains[0], dict) and len(domains[0]) > 1
-    if has_extra:
-        extra_keys = [k for k in domains[0].keys() if k not in ("domain", "name")]
-        for k in extra_keys:
-            table.add_column(k, style="green")
+    table.add_column("类型", style="magenta")
+    table.add_column("来源", style="green")
+    table.add_column("创建时间", style="yellow")
+    table.add_column("到期时间", style="yellow")
 
     for i, d in enumerate(domains, 1):
-        if isinstance(d, str):
-            table.add_row(str(i), d)
-        elif isinstance(d, dict):
-            name = d.get("domain", d.get("name", ""))
-            row = [str(i), name]
-            for k in extra_keys if has_extra else []:
-                row.append(str(d.get(k, "")))
-            table.add_row(*row)
+        if isinstance(d, dict):
+            domain_name = d.get("domain", "")
+            platform = d.get("platform_type", "")
+            source = d.get("source_service", "")
+            created = d.get("created_at", "-")
+            expires = d.get("expires_at", "-")
+            table.add_row(str(i), domain_name, platform, source, created, expires)
+        else:
+            table.add_row(str(i), str(d), "", "", "", "")
 
     console.print(table)
 
@@ -190,17 +200,19 @@ def action_list_records():
     table.add_column("类型", style="magenta")
     table.add_column("值", style="green")
     table.add_column("TTL", style="yellow", justify="right")
+    table.add_column("优先级", style="blue", justify="right")
 
     for r in records:
         if isinstance(r, dict):
-            rid = r.get("id", r.get("record_id", ""))
-            host = r.get("host", r.get("name", r.get("record", "")))
+            rid = r.get("id", "")
+            host = r.get("host", "")
             rtype = r.get("type", "")
-            value = r.get("value", r.get("content", r.get("data", "")))
+            value = r.get("value", "")
             ttl = r.get("ttl", "")
-            table.add_row(str(rid), str(host), str(rtype), str(value), str(ttl))
+            priority = r.get("priority", "")
+            table.add_row(str(rid), str(host), str(rtype), str(value), str(ttl), str(priority))
         else:
-            table.add_row("", str(r), "", "", "")
+            table.add_row("", str(r), "", "", "", "")
 
     console.print(table)
 
@@ -272,10 +284,10 @@ def action_update_record():
         if isinstance(r, dict):
             table.add_row(
                 str(i),
-                str(r.get("id", r.get("record_id", ""))),
-                str(r.get("host", r.get("name", ""))),
+                str(r.get("id", "")),
+                str(r.get("host", "")),
                 str(r.get("type", "")),
-                str(r.get("value", r.get("content", ""))),
+                str(r.get("value", "")),
                 str(r.get("ttl", "")),
             )
     console.print(table)
@@ -358,10 +370,10 @@ def action_delete_record():
         if isinstance(r, dict):
             table.add_row(
                 str(i),
-                str(r.get("id", r.get("record_id", ""))),
-                str(r.get("host", r.get("name", ""))),
+                str(r.get("id", "")),
+                str(r.get("host", "")),
                 str(r.get("type", "")),
-                str(r.get("value", r.get("content", ""))),
+                str(r.get("value", "")),
             )
     console.print(table)
 
