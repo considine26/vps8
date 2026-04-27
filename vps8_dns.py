@@ -153,7 +153,7 @@ def select_domain() -> str | None:
             name = d.get("domain", "")
             src = d.get("source_service", "")
             tag = {"domain": "📦", "dns": "🔗"}.get(src, "❓")
-            choices.append(f"{tag} {name}  [dim]{src}[/]")
+            choices.append(f"{tag} {name}  ({src})")
             choice_domains.append(name)
 
     if not choices:
