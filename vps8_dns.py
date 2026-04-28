@@ -230,15 +230,15 @@ def action_list_domains():
         choice = questionary.select(
             "操作:",
             choices=[
-                "💾 导出为 Markdown",
-                "↩ 返回上级",
+                "💾 导出MD文档",
+                "↩  返回上级",
             ],
         ).ask()
 
-        if choice is None or choice == "↩ 返回上级":
+        if choice is None or choice == "↩  返回上级":
             break
 
-        if choice == "💾 导出为 Markdown":
+        if choice == "💾 导出MD文档":
             filename = questionary.text("请输入导出文件名 (含 .md):", default="domains.md").ask()
             if filename:
                 try:
@@ -489,11 +489,11 @@ def _record_menu(domain: str):
                 "✏️ 更新 DNS",
                 "🗑️ 删除 DNS",
                 "🔄 重新获取",
-                "↩ 返回上级",
+                "↩  返回上级",
             ],
         ).ask()
 
-        if choice is None or choice == "↩ 返回上级":
+        if choice is None or choice == "↩  返回上级":
             break
 
         if choice == "🔄 重新获取":
