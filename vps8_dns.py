@@ -188,6 +188,7 @@ def action_list_domains():
 
     if not domains:
         console.print("[yellow]未找到任何域名[/]")
+        _pause()
         return
 
     # 按 source_service 排序: domain 在前, dns 在后
@@ -225,6 +226,40 @@ def action_list_domains():
 
     console.print(table)
 
+    while True:
+        choice = questionary.select(
+            "操作:",
+            choices=[
+                "💾 导出为 Markdown",
+                "↩ 返回上级",
+            ],
+        ).ask()
+
+        if choice is None or choice == "↩ 返回上级":
+            break
+
+        if choice == "💾 导出为 Markdown":
+            filename = questionary.text("请输入导出文件名 (含 .md):", default="domains.md").ask()
+            if filename:
+                try:
+                    with open(filename, "w", encoding="utf-8") as f:
+                        f.write("# DNS 区域列表\n\n")
+                        f.write("| # | 域名 | 类型 | 来源 | 创建时间 | 到期时间 |\n")
+                        f.write("|---|---|---|---|---|---|\n")
+                        for i, d in enumerate(domains, 1):
+                            if isinstance(d, dict):
+                                domain_name = d.get("domain", "")
+                                platform = d.get("platform_type", "")
+                                source = d.get("source_service", "")
+                                created = d.get("created_at", "-")
+                                expires = d.get("expires_at", "-")
+                                f.write(f"| {i} | {domain_name} | {platform} | {source} | {created} | {expires} |\n")
+                            else:
+                                f.write(f"| {i} | {d} | | | | |\n")
+                    console.print(f"[bold green]✓ 成功导出到 {filename}[/]")
+                except Exception as e:
+                    console.print(f"[bold red]✗ 导出失败: {e}[/]")
+                _pause()
 
 def _print_records_table(domain: str, records: list):
     """渲染 DNS 记录表格（纯展示，不请求 API）"""
@@ -523,9 +558,10 @@ def main():
                 action_list_domains()
             except KeyboardInterrupt:
                 console.print("\n[dim]操作已中断[/]")
+                _pause()
             except Exception as e:
                 console.print(f"[bold red]✗ 运行出错: {e}[/]")
-            _pause_and_clear()
+                _pause()
 
         elif choice == "📡 域名记录":
             domain = select_domain()
