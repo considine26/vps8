@@ -32,21 +32,3 @@ uv sync
 # 运行
 uv run vps8_dns.py
 ```
-
-## 项目依赖
-
-- **requests** — HTTP 请求
-- **questionary** — 键盘交互选择
-- **rich** — 终端美化输出
-- **python-dotenv** — 读取 .env 变量
-
-## API 参考
-
-- Base URL: `https://vps8.zz.cd/api/client/dnsopenapi/*`
-- 认证: HTTP Basic Auth (`client` / `YOUR_API_KEY`)
-- 方法: 所有接口均为 POST
-- 文档: https://dev.526768.xyz/doc/vps8-api.html
-
-## 支持的记录类型
-
-A · AAAA · MX · CNAME · TXT
