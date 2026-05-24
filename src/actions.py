@@ -225,8 +225,14 @@ def action_manage_certs():
             if questionary.confirm(f"确认要为 {domain} 发起续签吗?").ask():
                 with console.status("[dim]正在发起续签请求...[/]", spinner="dots"):
                     res = api_cert_renew(domain)
+                
                 if res:
-                    console.print("[bold green]✓ 续签请求已提交，请稍后刷新查看状态[/]")
+                    result_data = res.get("result", {})
+                    if isinstance(result_data, dict) and result_data.get("message"):
+                        msg = result_data.get("message")
+                        console.print(Panel(msg, title="续签反馈", border_style="cyan"))
+                    else:
+                        console.print("[bold green]✓ 续签请求已提交[/]")
                 _pause()
 
 def _do_create(domain: str, records: list) -> bool:
