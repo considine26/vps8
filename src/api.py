@@ -1,7 +1,5 @@
+import os
 import requests
-from .config import BASE_URL, API_KEY
-from .ui import console
-
 import json
 import time
 from .config import BASE_URL, API_KEY
@@ -83,6 +81,46 @@ def api_domain_list(refresh: bool = False) -> list:
         return domains
     
     return cache.get("data", [])
+
+def _auth():
+    """返回 HTTP Basic Auth 凭据"""
+    return ("client", API_KEY)
+
+def _headers():
+    return {"Content-Type": "application/json"}
+
+def _post(endpoint: str, payload: dict) -> dict:
+    """统一 POST 请求，自动处理错误"""
+    url = f"{BASE_URL}/{endpoint}"
+    try:
+        resp = requests.post(url, json=payload, auth=_auth(), headers=_headers(), timeout=15)
+        if resp.status_code == 429:
+            console.print("[bold red]⚠ 请求过于频繁，已触发速率限制，请稍后再试[/]")
+            return {}
+        resp.raise_for_status()
+        data = resp.json()
+        error = data.get("error")
+        if error:
+            if isinstance(error, dict):
+                msg = error.get("message", "未知错误")
+                code = error.get("code", "")
+                console.print(f"[bold red]✗ API 错误: {msg}[/] [dim]({code})[/]")
+            else:
+                console.print(f"[bold red]✗ API 错误: {error}[/]")
+            return {}
+        return data
+    except requests.exceptions.HTTPError as e:
+        console.print(f"[bold red]✗ HTTP 错误: {e}[/]")
+        return {}
+    except requests.exceptions.ConnectionError:
+        console.print("[bold red]✗ 无法连接到 API 服务器，请检查网络[/]")
+        return {}
+    except requests.exceptions.Timeout:
+        console.print("[bold red]✗ 请求超时[/]")
+        return {}
+    except Exception as e:
+        console.print(f"[bold red]✗ 未知错误: {e}[/]")
+        return {}
 
 def api_record_list(domain: str) -> list:
     """列出域名记录"""
