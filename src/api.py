@@ -82,3 +82,43 @@ def api_record_update(domain: str, record_id: int, value: str = None, ttl: int =
 def api_record_delete(domain: str, record_id: int) -> dict:
     """删除 DNS 记录"""
     return _post("record_delete", {"domain": domain, "id": record_id})
+
+# ── 证书中心 API ────────────────────────────────────────────────
+CERT_BASE_URL = "https://vps8.zz.cd/api/client/certcenter"
+
+def _cert_post(endpoint: str, payload: dict) -> dict:
+    """证书中心专用 POST 请求"""
+    url = f"{CERT_BASE_URL}/{endpoint}"
+    # 证书中心 API 似乎接受 Form Data 或 JSON，根据 curl 示例，这里尝试 Form Data 或兼容处理
+    # 之前的 _post 是处理 JSON 的，如果该 API 支持 JSON，则复用逻辑
+    # 观察 curl 示例: -d 'domain=example.com' 是 Form Data
+    try:
+        resp = requests.post(url, data=payload, auth=_auth(), timeout=15)
+        if resp.status_code == 429:
+            console.print("[bold red]⚠ 请求过于频繁，请稍后再试[/]")
+            return {}
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("error"):
+            console.print(f"[bold red]✗ API 错误: {data['error']}[/]")
+            return {}
+        return data
+    except Exception as e:
+        console.print(f"[bold red]✗ 请求出错: {e}[/]")
+        return {}
+
+def api_cert_list(domain: str) -> list:
+    """列出域名证书"""
+    data = _cert_post("list", {"domain": domain})
+    if not data:
+        return []
+    result = data.get("result", [])
+    return result if isinstance(result, list) else []
+
+def api_cert_download(domain: str, cert_type: str = "fullchain") -> dict:
+    """下载证书/私钥内容"""
+    return _cert_post("download", {"domain": domain, "type": cert_type})
+
+def api_cert_renew(domain: str) -> dict:
+    """发起续签"""
+    return _cert_post("renew", {"domain": domain})

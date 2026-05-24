@@ -6,7 +6,7 @@ from rich.panel import Panel
 from src.config import API_KEY
 from src.ui import console, clear_screen, _pause, _pause_and_clear
 from src.api import api_domain_list
-from src.actions import action_list_domains, select_domain, _record_menu
+from src.actions import action_list_domains, select_domain, _record_menu, action_manage_certs
 
 def main():
     if not API_KEY:
@@ -27,6 +27,7 @@ def main():
             choices=[
                 "📋 查看域名",
                 "📡 域名记录",
+                "🔒 证书管理",
                 "🔄 刷新缓存",
                 "❌ 退出脚本",
             ],
@@ -50,6 +51,16 @@ def main():
             domain = select_domain()
             if domain:
                 _record_menu(domain)
+
+        elif choice == "🔒 证书管理":
+            try:
+                action_manage_certs()
+            except KeyboardInterrupt:
+                console.print("\n[dim]操作已中断[/]")
+                _pause()
+            except Exception as e:
+                console.print(f"[bold red]✗ 运行出错: {e}[/]")
+                _pause()
 
         elif choice == "🔄 刷新缓存":
             api_domain_list(refresh=True)

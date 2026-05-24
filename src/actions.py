@@ -3,9 +3,95 @@ from rich.panel import Panel
 from rich.table import Table
 from .api import (
     api_domain_list, api_record_list, api_record_create, 
-    api_record_update, api_record_delete
+    api_record_update, api_record_delete,
+    api_cert_list, api_cert_download, api_cert_renew
 )
 from .ui import console, clear_screen, _pause, _print_records_table
+
+# ... (之前存在的函数)
+
+def _print_certs_table(domain: str, certs: list):
+    """渲染证书列表表格"""
+    if not certs:
+        console.print(f"[yellow]{domain} 暂无证书信息[/]")
+        return
+
+    table = Table(title=f"证书信息 — {domain}", show_lines=True)
+    table.add_column("ID", style="dim")
+    table.add_column("域名", style="cyan")
+    table.add_column("类型", style="magenta")
+    table.add_column("状态", style="bold green")
+    table.add_column("颁发者", style="blue")
+    table.add_column("到期时间", style="yellow")
+
+    for c in certs:
+        if isinstance(c, dict):
+            table.add_row(
+                str(c.get("id", "")),
+                str(c.get("domain", "")),
+                str(c.get("type", "")),
+                str(c.get("status_text", c.get("status", ""))),
+                str(c.get("issuer", "")),
+                str(c.get("expires_at", "")),
+            )
+    console.print(table)
+
+def action_manage_certs():
+    """🔒 证书管理逻辑"""
+    domain = select_domain()
+    if not domain:
+        return
+
+    while True:
+        clear_screen()
+        with console.status(f"[dim]正在获取 {domain} 的证书...[/]", spinner="dots"):
+            certs = api_cert_list(domain)
+        
+        _print_certs_table(domain, certs)
+
+        choice = questionary.select(
+            f"🔒 {domain} — 证书管理:",
+            choices=[
+                "📥 下载证书内容",
+                "🔄 发起续签",
+                "↩  返回上级",
+            ],
+        ).ask()
+
+        if choice is None or choice == "↩  返回上级":
+            break
+
+        if choice == "📥 下载证书内容":
+            type_choice = questionary.select(
+                "选择下载类型:",
+                choices=[
+                    questionary.Choice("Fullchain (证书+中间链)", "fullchain"),
+                    questionary.Choice("Certificate (证书)", "cert"),
+                    questionary.Choice("Private Key (私钥)", "privkey"),
+                    questionary.Choice("Bundle (打包文件)", "bundle"),
+                ]
+            ).ask()
+            if type_choice:
+                with console.status("[dim]正在请求证书内容...[/]", spinner="dots"):
+                    res = api_cert_download(domain, type_choice)
+                if res and res.get("result"):
+                    content = res.get("result")
+                    console.print(Panel(content, title=f"证书内容 ({type_choice})", border_style="green"))
+                    if questionary.confirm("是否保存到文件?").ask():
+                        filename = questionary.text("输入文件名:", default=f"{domain}_{type_choice}.pem").ask()
+                        if filename:
+                            with open(filename, "w", encoding="utf-8") as f:
+                                f.write(content)
+                            console.print(f"[green]✓ 已保存到 {filename}[/]")
+                _pause()
+
+        elif choice == "🔄 发起续签":
+            if questionary.confirm(f"确认要为 {domain} 发起续签吗?").ask():
+                with console.status("[dim]正在发起续签请求...[/]", spinner="dots"):
+                    res = api_cert_renew(domain)
+                if res:
+                    console.print("[bold green]✓ 续签请求已提交，请稍后刷新查看状态[/]")
+                _pause()
 from .config import SUPPORTED_TYPES, DEFAULT_TTL
 
 def select_domain() -> str | None:
