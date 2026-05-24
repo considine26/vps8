@@ -126,7 +126,7 @@ def action_list_domains():
 def _print_certs_table(domain: str, certs: list):
     """渲染证书列表表格"""
     if not certs:
-        console.print(f"[yellow]{domain} 暂无证书信息[/]")
+        console.print(f"[yellow]⚠ {domain} 暂无证书信息[/]")
         return
 
     table = Table(title=f"证书信息 — {domain}", show_lines=True)

@@ -22,8 +22,14 @@ def _post(endpoint: str, payload: dict) -> dict:
             return {}
         resp.raise_for_status()
         data = resp.json()
-        if data.get("error"):
-            console.print(f"[bold red]✗ API 错误: {data['error']}[/]")
+        error = data.get("error")
+        if error:
+            if isinstance(error, dict):
+                msg = error.get("message", "未知错误")
+                code = error.get("code", "")
+                console.print(f"[bold red]✗ API 错误: {msg}[/] [dim]({code})[/]")
+            else:
+                console.print(f"[bold red]✗ API 错误: {error}[/]")
             return {}
         return data
     except requests.exceptions.HTTPError as e:
@@ -99,8 +105,14 @@ def _cert_post(endpoint: str, payload: dict) -> dict:
             return {}
         resp.raise_for_status()
         data = resp.json()
-        if data.get("error"):
-            console.print(f"[bold red]✗ API 错误: {data['error']}[/]")
+        error = data.get("error")
+        if error:
+            if isinstance(error, dict):
+                msg = error.get("message", "未知错误")
+                code = error.get("code", "")
+                console.print(f"[bold red]✗ API 错误: {msg}[/] [dim]({code})[/]")
+            else:
+                console.print(f"[bold red]✗ API 错误: {error}[/]")
             return {}
         return data
     except Exception as e:
