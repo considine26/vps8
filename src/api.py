@@ -89,37 +89,43 @@ def _auth():
 def _headers():
     return {"Content-Type": "application/json"}
 
-def _post(endpoint: str, payload: dict) -> dict:
+def _post(endpoint: str, payload: dict, silent: bool = False) -> dict:
     """统一 POST 请求，自动处理错误"""
     url = f"{BASE_URL}/{endpoint}"
     try:
         resp = requests.post(url, json=payload, auth=_auth(), headers=_headers(), timeout=15)
         if resp.status_code == 429:
-            console.print("[bold red]⚠ 请求过于频繁，已触发速率限制，请稍后再试[/]")
+            if not silent:
+                console.print("[bold red]⚠ 请求过于频繁，已触发速率限制，请稍后再试[/]")
             return {}
         resp.raise_for_status()
         data = resp.json()
         error = data.get("error")
         if error:
-            if isinstance(error, dict):
-                msg = error.get("message", "未知错误")
-                code = error.get("code", "")
-                console.print(f"[bold red]✗ API 错误: {msg}[/] [dim]({code})[/]")
-            else:
-                console.print(f"[bold red]✗ API 错误: {error}[/]")
+            if not silent:
+                if isinstance(error, dict):
+                    msg = error.get("message", "未知错误")
+                    code = error.get("code", "")
+                    console.print(f"[bold red]✗ API 错误: {msg}[/] [dim]({code})[/]")
+                else:
+                    console.print(f"[bold red]✗ API 错误: {error}[/]")
             return {}
         return data
     except requests.exceptions.HTTPError as e:
-        console.print(f"[bold red]✗ HTTP 错误: {e}[/]")
+        if not silent:
+            console.print(f"[bold red]✗ HTTP 错误: {e}[/]")
         return {}
     except requests.exceptions.ConnectionError:
-        console.print("[bold red]✗ 无法连接到 API 服务器，请检查网络[/]")
+        if not silent:
+            console.print("[bold red]✗ 无法连接到 API 服务器，请检查网络[/]")
         return {}
     except requests.exceptions.Timeout:
-        console.print("[bold red]✗ 请求超时[/]")
+        if not silent:
+            console.print("[bold red]✗ 请求超时[/]")
         return {}
     except Exception as e:
-        console.print(f"[bold red]✗ 未知错误: {e}[/]")
+        if not silent:
+            console.print(f"[bold red]✗ 未知错误: {e}[/]")
         return {}
 
 def api_record_list(domain: str) -> list:
@@ -156,7 +162,7 @@ def api_record_delete(domain: str, record_id: int) -> dict:
 # ── 证书中心 API ────────────────────────────────────────────────
 CERT_BASE_URL = "https://vps8.zz.cd/api/client/certcenter"
 
-def _cert_post(endpoint: str, payload: dict) -> dict:
+def _cert_post(endpoint: str, payload: dict, silent: bool = False) -> dict:
     """证书中心专用 POST 请求"""
     url = f"{CERT_BASE_URL}/{endpoint}"
     # 证书中心 API 似乎接受 Form Data 或 JSON，根据 curl 示例，这里尝试 Form Data 或兼容处理
@@ -165,27 +171,31 @@ def _cert_post(endpoint: str, payload: dict) -> dict:
     try:
         resp = requests.post(url, data=payload, auth=_auth(), timeout=15)
         if resp.status_code == 429:
-            console.print("[bold red]⚠ 请求过于频繁，请稍后再试[/]")
+            if not silent:
+                console.print("[bold red]⚠ 请求过于频繁，请稍后再试[/]")
             return {}
         resp.raise_for_status()
         data = resp.json()
         error = data.get("error")
         if error:
-            if isinstance(error, dict):
-                msg = error.get("message", "未知错误")
-                code = error.get("code", "")
-                console.print(f"[bold red]✗ API 错误: {msg}[/] [dim]({code})[/]")
-            else:
-                console.print(f"[bold red]✗ API 错误: {error}[/]")
+            if not silent:
+                if isinstance(error, dict):
+                    msg = error.get("message", "未知错误")
+                    code = error.get("code", "")
+                    console.print(f"[bold red]✗ API 错误: {msg}[/] [dim]({code})[/]")
+                else:
+                    console.print(f"[bold red]✗ API 错误: {error}[/]")
             return {}
         return data
     except Exception as e:
-        console.print(f"[bold red]✗ 请求出错: {e}[/]")
+        if not silent:
+            console.print(f"[bold red]✗ 请求出错: {e}[/]")
         return {}
 
 def api_cert_list(domain: str) -> list:
     """列出域名证书"""
-    data = _cert_post("list", {"domain": domain})
+    # 证书列表查询通常会遇到“未找到”的情况，这里使用 silent 模式
+    data = _cert_post("list", {"domain": domain}, silent=True)
     if not data:
         return []
     result = data.get("result")
