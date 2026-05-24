@@ -60,7 +60,8 @@ def select_domain() -> str | None:
 def action_list_domains():
     """📋 列出所有 DNS 区域"""
     console.print()
-    domains = api_domain_list(refresh=True)
+    # 修改为优先使用缓存，不再强制刷新
+    domains = api_domain_list(refresh=False)
 
     if not domains:
         console.print("[yellow]未找到任何域名[/]")
