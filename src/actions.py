@@ -176,57 +176,50 @@ def action_manage_certs():
             break
 
         if choice == "📥 下载证书内容":
-            type_choice = questionary.select(
-                "选择下载类型:",
-                choices=[
-                    questionary.Choice("Fullchain (证书+中间链)", "fullchain"),
-                    questionary.Choice("Certificate (证书)", "cert"),
-                    questionary.Choice("Private Key (私钥)", "privkey"),
-                    questionary.Choice("Bundle (打包文件)", "bundle"),
-                ]
-            ).ask()
-            if type_choice:
-                with console.status("[dim]正在请求证书内容...[/]", spinner="dots"):
-                    res = api_cert_download(domain, type_choice)
-                
-                if res and res.get("result"):
-                    raw_result = res.get("result")
-                    
-                    # 处理返回结果可能是字典（如 Bundle 类型）或字符串的情况
-                    if isinstance(raw_result, dict):
-                        content = raw_result.get("content", "")
-                        suggested_filename = raw_result.get("filename", f"{domain}_{type_choice}.pem")
-                    else:
-                        content = str(raw_result)
-                        suggested_filename = f"{domain}_{type_choice}.pem"
+            types_to_download = [
+                ("Fullchain", "fullchain"),
+                ("Certificate", "cert"),
+                ("Private Key", "privkey"),
+                ("Bundle", "bundle"),
+            ]
+            
+            confirm = questionary.confirm(f"确认要下载 {domain} 的所有证书文件 (Fullchain, Cert, Key, Bundle) 吗？").ask()
+            if not confirm:
+                continue
 
-                    if not content:
-                        console.print("[yellow]证书内容为空[/]")
-                        _pause()
-                        continue
-
-                    # 预览内容
-                    console.print(Panel(content, title=f"证书内容 ({type_choice})", border_style="green"))
-                    
-                    if questionary.confirm("是否保存到文件?").ask():
-                        # 确保目录存在: cert/<domain>/
-                        target_dir = os.path.join("cert", domain)
-                        if not os.path.exists(target_dir):
-                            os.makedirs(target_dir, exist_ok=True)
+            # 确保目录存在: cert/<domain>/
+            target_dir = os.path.join("cert", domain)
+            os.makedirs(target_dir, exist_ok=True)
+            
+            success_count = 0
+            with console.status(f"[bold cyan]正在批量下载 {domain} 的证书文件...[/]", spinner="dots"):
+                for label, t_type in types_to_download:
+                    res = api_cert_download(domain, t_type)
+                    if res and res.get("result"):
+                        raw_result = res.get("result")
                         
-                        full_path = os.path.join(target_dir, suggested_filename)
-                        filename = questionary.text("确认保存路径/文件名:", default=full_path).ask()
+                        if isinstance(raw_result, dict):
+                            content = raw_result.get("content", "")
+                            filename = raw_result.get("filename", f"{domain}_{t_type}.pem")
+                        else:
+                            content = str(raw_result)
+                            filename = f"{domain}_{t_type}.pem"
                         
-                        if filename:
+                        if content:
+                            full_path = os.path.join(target_dir, filename)
                             try:
-                                # 再次确保用户可能修改后的目录也存在
-                                os.makedirs(os.path.dirname(filename), exist_ok=True)
-                                with open(filename, "w", encoding="utf-8") as f:
+                                with open(full_path, "w", encoding="utf-8") as f:
                                     f.write(content)
-                                console.print(f"[bold green]✓ 已保存到 {filename}[/]")
+                                console.print(f"[green]✓[/] 已保存 {label}: [dim]{full_path}[/]")
+                                success_count += 1
                             except Exception as e:
-                                console.print(f"[bold red]✗ 保存失败: {e}[/]")
-                _pause()
+                                console.print(f"[red]✗[/] 保存 {label} 失败: {e}")
+                    else:
+                        console.print(f"[red]✗[/] 下载 {label} 失败")
+
+            console.print(f"\n[bold green]批量下载完成！成功: {success_count}/{len(types_to_download)}[/]")
+            console.print(f"[dim]文件已存放在: {os.path.abspath(target_dir)}[/]")
+            _pause()
 
         elif choice == "🔄 发起续签":
             if questionary.confirm(f"确认要为 {domain} 发起续签吗?").ask():
