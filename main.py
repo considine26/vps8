@@ -5,7 +5,7 @@ from rich.panel import Panel
 
 from src.config import API_KEY
 from src.ui import console, clear_screen, _pause, _pause_and_clear
-from src.api import api_domain_list
+from src.api import api_domain_list, clear_local_cache, get_cache_info
 from src.actions import action_list_domains, select_domain, _record_menu, action_manage_certs
 
 def main():
@@ -15,9 +15,11 @@ def main():
 
     while True:
         clear_screen()
+        cache_time = get_cache_info()
         console.print(Panel.fit(
             "[bold cyan]VPS8 DNS 管理工具[/]\n"
-            "[dim]支持域名记录增删改查[/]",
+            "[dim]支持域名记录增删改查[/]\n"
+            f"[dim]缓存时间: {cache_time}[/]",
             title="🌐 VPS8 DNS",
             border_style="cyan",
         ))
@@ -28,7 +30,7 @@ def main():
                 "📋 查看域名",
                 "📡 域名记录",
                 "🔒 证书管理",
-                "🔄 刷新缓存",
+                "🗑️ 清空缓存",
                 "❌ 退出脚本",
             ],
         ).ask()
@@ -62,9 +64,11 @@ def main():
                 console.print(f"[bold red]✗ 运行出错: {e}[/]")
                 _pause()
 
-        elif choice == "🔄 刷新缓存":
-            api_domain_list(refresh=True)
-            console.print("[green]✓ 域名缓存已刷新[/]")
+        elif choice == "🗑️ 清空缓存":
+            if clear_local_cache():
+                console.print("[green]✓ 本地缓存已清空[/]")
+            else:
+                console.print("[yellow]⚠ 无本地缓存或清空失败[/]")
             _pause_and_clear()
 
 if __name__ == "__main__":

@@ -5,7 +5,8 @@ from rich.table import Table
 from .api import (
     api_domain_list, api_record_list, api_record_create, 
     api_record_update, api_record_delete,
-    api_cert_list, api_cert_download, api_cert_renew
+    api_cert_list, api_cert_download, api_cert_renew,
+    get_cache_info
 )
 from .ui import console, clear_screen, _pause, _print_records_table
 from .config import SUPPORTED_TYPES, DEFAULT_TTL
@@ -16,6 +17,10 @@ def select_domain() -> str | None:
     if not domains:
         console.print("[yellow]未找到任何域名，或 API 返回为空[/]")
         return None
+    
+    # 显示缓存时间
+    cache_time = get_cache_info()
+    console.print(f"[dim]当前域名列表缓存于: {cache_time}[/]")
 
     def _sort_key(d):
         if isinstance(d, dict):
