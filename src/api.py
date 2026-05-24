@@ -112,8 +112,12 @@ def api_cert_list(domain: str) -> list:
     data = _cert_post("list", {"domain": domain})
     if not data:
         return []
-    result = data.get("result", [])
-    return result if isinstance(result, list) else []
+    result = data.get("result")
+    if isinstance(result, list):
+        return result
+    if isinstance(result, dict):
+        return [result]
+    return []
 
 def api_cert_download(domain: str, cert_type: str = "fullchain") -> dict:
     """下载证书/私钥内容"""
