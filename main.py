@@ -3,10 +3,10 @@ import sys
 import questionary
 from rich.panel import Panel
 
-from vps8_core.config import API_KEY
-from vps8_core.ui import console, clear_screen, _pause, _pause_and_clear
-from vps8_core.api import api_domain_list
-from vps8_core.actions import action_list_domains, select_domain, _record_menu
+from src.config import API_KEY
+from src.ui import console, clear_screen, _pause, _pause_and_clear
+from src.api import api_domain_list
+from src.actions import action_list_domains, select_domain, _record_menu
 
 def main():
     if not API_KEY:
